@@ -48,6 +48,8 @@ const (
 
 	botHandle = "@BrokerBot"
 	helpToken = "help"
+
+	commandPrefix = "/"
 )
 
 func main() {
@@ -161,6 +163,20 @@ func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	if isCommand(splitMsg[1]) {
+		msg := fmt.Sprintf("Received command: %s", strings.TrimPrefix(splitMsg[1], commandPrefix))
+		messagelib.SendMessage(s, m.ChannelID, msg)
+		return
+	}
+
+	handleTicketQuery(s, m, splitMsg)
+}
+
+func isCommand(s string) bool {
+	return strings.HasPrefix(s, commandPrefix)
+}
+
+func handleTicketQuery(s *discordgo.Session, m *discordgo.MessageCreate, splitMsg []string) {
 	var tickers []string = splitMsg[1:]
 	tickers = messagelib.RemoveMentions(tickers)
 	tickers = messagelib.CanonicalizeMessage(tickers)

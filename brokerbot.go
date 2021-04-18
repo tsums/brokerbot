@@ -44,6 +44,7 @@ type tickerType int
 const (
 	crypto tickerType = iota
 	stock
+	alias
 
 	botHandle = "@BrokerBot"
 	helpToken = "help"
@@ -197,8 +198,10 @@ func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 					return
 				}
 				tickerValueChan <- tickerValue
+			case alias:
+				msg := fmt.Sprintf("Unknown alias: %q.", ticker)
+				tickerValueChan <- &messagelib.TickerValue{Ticker: ticker, Value: 0.0, Change: 0.0, MiscText: msg}
 			}
-			return
 		}(rawTicker)
 	}
 	wg.Wait()
@@ -225,6 +228,9 @@ func handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 func getTickerAndType(s string) (string, tickerType) {
 	if strings.HasPrefix(s, "$") {
 		return strings.TrimPrefix(s, "$"), crypto
+	}
+	if strings.HasPrefix(s, "?") {
+		return strings.TrimPrefix(s, "?"), alias
 	}
 	return s, stock
 }

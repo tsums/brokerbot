@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/JoeParrinello/brokerbot/persistencelib"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -14,17 +15,12 @@ var (
 	messagePrefix string = "TEST"
 )
 
-var aliasMap = map[string][]string{
-	"?CRYPTO": {"$BTC", "$ETH", "$LTC", "$LINK", "$BCH", "$ZEC"},
-	"?MEMES":  {"THCX", "PLUG", "FCEL", "BLDP", "NVDA"},
-	"?FAANG":  {"FB", "AMZN", "AAPL", "NFLX", "GOOG"},
-}
-
 // TickerValue passes values of fetched content.
 type TickerValue struct {
-	Ticker string
-	Value  float32
-	Change float32
+	Ticker   string
+	Value    float32
+	Change   float32
+	MiscText string
 }
 
 // EnterTestModeWithPrefix enables extra log prefixes to identify a test server.
@@ -72,6 +68,9 @@ func createMessageEmbedWithPrefix(tickerValue *TickerValue, prefix string) *disc
 	if !math.IsNaN(float64(tickerValue.Change)) && tickerValue.Change != 0 {
 		mesg = fmt.Sprintf("%s (%.2f%%)", mesg, tickerValue.Change)
 	}
+	if len(tickerValue.MiscText) > 0 {
+		mesg = fmt.Sprintf("%s\n%s", mesg, tickerValue.MiscText)
+	}
 	return &discordgo.MessageEmbed{
 		Title:       tickerValue.Ticker,
 		URL:         fmt.Sprintf("https://www.google.com/search?q=%s", tickerValue.Ticker),
@@ -104,7 +103,7 @@ func createMessageEmbedField(tickerValue *TickerValue) *discordgo.MessageEmbedFi
 	if math.IsNaN(float64(tickerValue.Value)) || tickerValue.Value == 0.0 {
 		return &discordgo.MessageEmbedField{
 			Name:   tickerValue.Ticker,
-			Value:  "No Data",
+			Value:  fmt.Sprintf("%s - %s", "No Data", tickerValue.MiscText),
 			Inline: false,
 		}
 	}
@@ -112,6 +111,9 @@ func createMessageEmbedField(tickerValue *TickerValue) *discordgo.MessageEmbedFi
 	mesg := fmt.Sprintf("$%.2f", tickerValue.Value)
 	if !math.IsNaN(float64(tickerValue.Change)) && tickerValue.Change != 0 {
 		mesg = fmt.Sprintf("%s (%.2f%%)", mesg, tickerValue.Change)
+	}
+	if len(tickerValue.MiscText) > 0 {
+		mesg = fmt.Sprintf("%s\n%s", mesg, tickerValue.MiscText)
 	}
 	return &discordgo.MessageEmbedField{
 		Name:   tickerValue.Ticker,
@@ -156,15 +158,15 @@ func CanonicalizeMessage(s []string) (ret []string) {
 func ExpandAliases(s []string) (ret []string) {
 	for _, v := range s {
 		if strings.HasPrefix(v, "?") {
-			a, ok := aliasMap[v]
-			if !ok {
+			expanded := persistencelib.ExpandAlias(v)
+			if expanded != nil {
+				ret = append(ret, expanded...)
+			} else {
 				ret = append(ret, v)
-				continue
 			}
-			ret = append(ret, a...)
-			continue
+		} else {
+			ret = append(ret, v)
 		}
-		ret = append(ret, v)
 	}
 	return
 }
